@@ -37,7 +37,7 @@
 ;; *** BEGIN SECTION TO DEFINE SERIAL CONNECTION ***
 ;; This function creates in and out and sets the read thread.
 ;; Copied from racket-firmata.rkt
-(define BAUDRATE           57600)
+(define BAUDRATE           "57600")
 
 (define (open-asip) 
   (define port-name (get-port))
@@ -51,7 +51,7 @@
      (set! call-string (string-append  "stty -F " port-name " cs8 " BAUDRATE " ignbrk -brkint -icrnl -imaxbel -opost -onlcr -isig -icanon -iexten -echo -echoe -echok -echoctl -echoke noflsh -ixon -crtscts"))
      (set! filename port-name))        
    ( (equal? os "mac") 
-     (set! call-string (string-append  "stty -f " port-name BAUDRATE " cs8 cread clocal"))
+     (set! call-string (string-append  "stty -f " port-name " " BAUDRATE " cs8 cread clocal"))
      (set! filename port-name))
    ( (equal? os "win") 
      (set! call-string (string-append  "mode " port-name ": baud=" BAUDRATE " parity=N data=8 stop=1"))
@@ -139,29 +139,36 @@
 (define ANALOG-IO-PINS (make-vector MAX_NUM_ANALOG_PINS))
 (define DIGITAL-IO-PINS (make-vector MAX_NUM_DIGITAL_PINS))
 
+;; We store port mapping in a hash table
+(define PORT-MAPPING-TABLE (make-hash))
+
 
 ;; *** DEFINTIONS TO WRITE MESSAGES **TO** ARDUINO ***
 
 ;; Setting a pin to a certain mode (INPUT, OUTPUT, PWM, etc.)
 (define (set-pin-mode pin mode)
-  (write (string-append IO_SERVICE "," PIN_MODE "," (number->string pin) "," 
-			(number->string mode) ) out)
+  (printf "DEBUG -> Sending: ~a \n" (string-append IO_SERVICE "," PIN_MODE "," (number->string pin) "," 
+			(number->string mode) ))
+  (write-string (string-append IO_SERVICE "," PIN_MODE "," (number->string pin) "," 
+			(number->string mode) "\n") out)
+  #t
 )
 
 ;; Writing a value (high or low) to a digital pin
 (define (digital-write pin value)
-  (write (string-append IO_SERVICE "," DIGITAL_WRITE "," (number->string pin) 
-			"," (number->string value)) out)
+  (write-string (string-append IO_SERVICE "," DIGITAL_WRITE "," (number->string pin) 
+			"," (number->string value) "\n") out)
+  #t
 )
 
 (define (analog-write pin value)
-  (write (string-append IO_SERVICE "," ANALOG_WRITE "," (number->string pin) 
-			"," (number->string value)) out)
+  (write-string (string-append IO_SERVICE "," ANALOG_WRITE "," (number->string pin) 
+			"," (number->string value) "\n") out)
 )
 
 ;; Set auto-reporting for I/O to a certain time in ms (needed for analog input pins)
 (define (set-autoreport timems)
-  (write (string-append IO_SERVICE "," AUTOEVENT_MESSAGE "," (number->string timems)) out)
+  (write-string (string-append IO_SERVICE "," AUTOEVENT_MESSAGE "," (number->string timems) "\n") out)
 )
 
 ;; Utility functions for compatibility with old Firmata code
@@ -190,6 +197,8 @@
   (read-loop))
 
 (define (process-input input)
+  (printf "DEBUG -> I have received: ~a \n" input)
+
   (let  ([char (substring input 0 1)])
     (cond
       [(equal? char EVENT_HANDLER)         (handle-input-event input)]
@@ -225,8 +234,35 @@
 ;; 4, pin 1 to the second bit of port 4, etc. MAPPING IS IN HEX! so 20 is
 ;; 32. Take the conjunction of this with the port and you get the pin
 ;; value)
-(define (process-pin-data input) null )
-
+(define (process-pin-data input)
+  
+  ;; First we take the string between brackets (str-index-of is defined below)
+  (define ports (string-split (substring input 
+                           (+ (str-index-of input "{") 1)
+                           (str-index-of input "}") ) ",") )
+    
+  ;; We iterate over the list
+  (for ([i (length ports)])
+    ;; the pin is i; the port is the first element of the pair; the bit is the second element.
+    ;; we attach #x in front to denote that it's a hex number
+    (define port (string->number (string-append "#x" (first (string-split (list-ref ports i) ":")))))
+    (define position (string->number (string-append "#x" 
+                                                    (second (string-split (list-ref ports i) ":")))))
+  
+    (cond ( (hash-has-key? PORT-MAPPING-TABLE port)
+            ;; there is already a key for this port. Let's get it and
+            ;; add the new entry position -> pin
+            (hash-set! (hash-ref PORT-MAPPING-TABLE port) position i)
+            )
+          (else
+           ;; we create a new hash table for position -> pin and we add it
+           ;; as a value for the key "port"
+           (hash-set! PORT-MAPPING-TABLE port (make-hash (list (cons position  i))))
+           )
+          )
+  )
+  (printf "DEBUG -> PORT-MAPPING-TABLE is ~a \n" PORT-MAPPING-TABLE)
+)
 
 ;; Find the index of something in a list (I couldn't find a function for this!)
 ;; Copied from stackoverflow and slightly modified. str and x need to be string
@@ -239,4 +275,3 @@
 ;; (this are analog pins: 3 of them are set, analog pins 0, 1 and 2 in
 ;; this case, and their values are in bracket).
 
-(str-index-of "PIPPO" "O")

@@ -19,6 +19,7 @@
 
 ;; TODO [FR]: Here we may want to export something, commented for the moment.
 (provide open-asip
+         close-asip
          set-pin-mode
          digital-write
          analog-write
@@ -113,7 +114,25 @@
   ;; We request port mapping so that we know that we have it later on
   (request-port-mapping)
   (sleep 1)
+  (request-port-mapping)
+  (sleep 1)
   ) ;; end of open-asip
+
+(define (close-asip)
+  (when (not (null? read-thread)) 
+    (printf "Killing thread .... \n")
+    (kill-thread read-thread)
+    (set! read-thread null)
+    (printf "Closing input .... \n")
+    (close-input-port in)
+    (printf "Flushing output .... \n")
+    (flush-output out)
+    (printf "Closing output .... \n")
+    (close-output-port out)
+    (set! in null)
+    (set! out null)
+    (printf "Serial connection closed .... \n"))
+  ) ;; end of close-asip
 ;; *** END SECTION TO SET UP SERIAL CONNECTION ***
 
 
@@ -175,8 +194,8 @@
 
 ;; Setting a pin to a certain mode (INPUT, OUTPUT, PWM, etc.)
 (define (set-pin-mode pin mode)
-  (printf "DEBUG -> Sending: ~a \n" (string-append IO_SERVICE "," PIN_MODE "," (number->string pin) "," 
-			(number->string mode) ))
+;;  (printf "DEBUG -> Sending: ~a \n" (string-append IO_SERVICE "," PIN_MODE "," (number->string pin) "," 
+;;			(number->string mode) ))
   (write-string (string-append IO_SERVICE "," PIN_MODE "," (number->string pin) "," 
 			(number->string mode) "\n") out)
   #t
@@ -236,16 +255,26 @@
 
 (define (process-input input)
   (printf "DEBUG -> I have received: ~a \n" input)
-
-  (let  ([char (substring input 0 1)])
-    (cond
-      [(equal? char EVENT_HANDLER)         (handle-input-event input)]
-      [(equal? char ERROR_MESSAGE_HEADER)  (handle-input-event input)]
-      [(equal? char DEBUG_MESSAGE_HEADER)  (handle-input-event input)])
-    ;; FIXME: add error handling for unknown messages? 
-    ;; FIXME: handle different messages in different ways
-    )
+  (cond ( (> (string-length input) 1)
+          (let  ([char (substring input 0 1)])
+            (cond
+              [(equal? char EVENT_HANDLER)         (handle-input-event input)]
+              [(equal? char ERROR_MESSAGE_HEADER)  (handle-error-event input)]
+              [(equal? char DEBUG_MESSAGE_HEADER)  (handle-debug-event input)])
+            ;; FIXME: add error handling for unknown messages? 
+            ;; FIXME: handle different messages in different ways
+            )
+          )
+        )
   
+  )
+
+(define (handle-error-event input)
+  (printf "DEBUG -> I have received the following error: ~a \n" input)
+  )
+
+(define (handle-debug-event input)
+  (printf "DEBUG -> I have received the following debug message ~a \n" input)
   )
 
   
@@ -311,7 +340,7 @@
            )
           )
   )
-  (printf "DEBUG -> PORT-MAPPING-TABLE is ~a \n" PORT-MAPPING-TABLE)
+;;  (printf "DEBUG -> PORT-MAPPING-TABLE is ~a \n" PORT-MAPPING-TABLE)
 ) ;; End of process-pin-data
 
 
@@ -330,21 +359,24 @@
   (printf "DEBUG -> The values for port ~a are ~a \n" port bitmask)
   
   ;; Now we need to convert the value of a port back to pin values.
-  ;; Let's retrieve the mapping for this port
-  (define singlePortMap (hash-ref PORT-MAPPING-TABLE port))
+  ;; Let's retrieve the mapping for this port, making sure we have this port:
+  (cond ( (hash-has-key? PORT-MAPPING-TABLE port) 
+          (define singlePortMap (hash-ref PORT-MAPPING-TABLE port))
 
-  ;; Easy: we take the bitwise-and of the port with the position;
-  ;; if it is not zero we set pin to HIGH, and to LOW otherwise
-  (hash-for-each singlePortMap 
-                 (lambda (x y) 
-                          (vector-set! DIGITAL-IO-PINS y 
-                                       (cond 
-                                         ( (equal? (bitwise-and bitmask x) 0) LOW)
-                                         (else HIGH)
-                                         )
-                                       )
-                          )
-                 )
+          ;; Easy: we take the bitwise-and of the port with the position;
+          ;; if it is not zero we set pin to HIGH, and to LOW otherwise
+          (hash-for-each singlePortMap 
+                         (lambda (x y) 
+                           (vector-set! DIGITAL-IO-PINS y 
+                                        (cond 
+                                          ( (equal? (bitwise-and bitmask x) 0) LOW)
+                                          (else HIGH)
+                                          )
+                                        )
+                           )
+                         )
+          )
+        )
   ;;(printf "DEBUG -> The current pin values are: ~a" DIGITAL-IO-PINS)
   ) ;; end of process-port-data
 
@@ -364,7 +396,7 @@
   (map (λ (x) (vector-set! ANALOG-IO-PINS
          (string->number (first (string-split x ":")))  ;; the pin
          (string->number (second (string-split x ":"))) ;; the value
-         ) ) ;; end of lambda
+         ) ) analogValues ;; end of lambda
        ) ;; end of map
   
   (printf "The current value of analog pins is: ~a \n" ANALOG-IO-PINS)

@@ -13,12 +13,36 @@
 ;; writing, a separate thread handles the input. The input thread writes 
 ;; values to arrays of bit values, see below.
 
-;; TODO [FR]: Here we may want to export something, commented for the moment.
-;; (provide is-pin-set?,
-;;          is-arduino-pin-set?,
-;;          etc...
-;; )
+;; How to use it: you can use any of the functions and constants exported
+;; below in the (provide... ) block. This is a minimal example:
 
+
+;; TODO [FR]: Here we may want to export something, commented for the moment.
+(provide open-asip
+         set-pin-mode
+         digital-write
+         analog-write
+         digital-read
+         analog-read
+         set-autoreport
+         set-arduino-pin! ;; shorthand for digital-write, for backward compatibility
+         clear-arduino-pin! ;; shorthand for digital-write, for backward compatibility
+         set-pin-mode! ;; synonym of set-pin-mode, for backward compatibility
+         
+         ;; pin modes
+         UNKNOWN_MODE
+         INPUT_MODE
+         INPUT_PULLUP_MODE
+         OUTPUT_MODE
+         ANALOG_MODE
+         PWM_MODE
+         RESERVED_MODE
+         OTHER_SERVICE_MODE
+         
+         ;; Arduino HIGH and LOW (1 and 0)
+         HIGH
+         LOW
+         )
 
 ; bit-operations
 (require file/sha1)
@@ -85,6 +109,10 @@
 	   (error "Failed to open the connection with " port-name " verify if your microcontroller is plugged in correctly"))            
 	 )               
 	)
+  (sleep 1)
+  ;; We request port mapping so that we know that we have it later on
+  (request-port-mapping)
+  (sleep 1)
   ) ;; end of open-asip
 ;; *** END SECTION TO SET UP SERIAL CONNECTION ***
 
@@ -176,21 +204,31 @@
 (define (clear-arduino-pin! pin) (digital-write pin LOW))
 (define set-pin-mode! set-pin-mode)
 
+;; Just request the port mapping
+(define request-port-mapping (λ () (write-string (string-append IO_SERVICE "," PORT_MAPPING "\n") out)) )
+
+
 ;; *** END OF FUNCTIONS TO WRITE TO ARDUINO ***
 
 
 ;; *** FUNCTIONS TO HANDLE MESSAGES FROM ARDUINO AND TO READ VALUES ***
+
+;; Just report the value of a digital pin stored in the vector
 (define (digital-read pin)
   (vector-ref DIGITAL-IO-PINS pin))
 
+;; Just report the value of an analog pin stored in the vector
 (define (analog-read pin)
   (vector-ref ANALOG-IO-PINS pin))
 
 
+;; This is the function that creates a read loop on input
 (define (read-hook)
   (printf "Read thread started ...")
   (read-loop))
 
+;; The infinite loop: it keeps waiting for lines on input and
+;; then calls process-input
 (define (read-loop)
   ;; We read a whole line (ASIP messages are terminated with a \n
   (process-input (read-line in))
@@ -203,13 +241,17 @@
     (cond
       [(equal? char EVENT_HANDLER)         (handle-input-event input)]
       [(equal? char ERROR_MESSAGE_HEADER)  (handle-input-event input)]
-      [(equal? char DEBUG_MESSAGE_HEADER)  (handle-input-event input)])))
+      [(equal? char DEBUG_MESSAGE_HEADER)  (handle-input-event input)])
+    ;; FIXME: add error handling for unknown messages? 
+    ;; FIXME: handle different messages in different ways
+    )
+  
+  )
 
   
-;(define (process-pin-mapping mapping)
-  
-  
 (define (handle-input-event input)
+  ;; We look at the first character and dispatch the 
+  ;; input to the appropriate function
   (let ([char (substring input 1 2)])
     (cond 
       [(equal? char IO_SERVICE)
@@ -223,10 +265,6 @@
             (process-analog-values input)]))])))
 
 
-;; Placeholders. TODO: code them!!
-(define (process-port-data input) null)
-(define (process-analog-values) null)
-                  
 ;; Processing port mapping is the most complicated part of ASIP. The initial message tells how to
 ;; map port bits to pins. Example message FROM Arduino:
 ;; - @I,M,20,{4:1,4:2,4:4,4:8,4:10,4:20,4:40,4:80,2:1,2:2,2:4,2:8,2:10,2:20,3:1,3:2,3:4,3:8,3:10,3:20}
@@ -234,6 +272,18 @@
 ;; 4, pin 1 to the second bit of port 4, etc. MAPPING IS IN HEX! so 20 is
 ;; 32. Take the conjunction of this with the port and you get the pin
 ;; value)
+;; Here we set up this initial mapping. We use the hash map PORT-MAPPING-TABLE. This table
+;; maps a port number to another hash map. In this second hash map we map positions in the port 
+;; (expressed as powers of 2, so 1 means position 0, 16 means position 5, etc.)
+;; Overall, this looks something like (see message above)
+;; PORT=4 ---> (POSITION=1 ---> PIN=0)
+;;             (POSITION=2 ---> PIN=1)
+;;             ...
+;; PORT=2 ---> (POSITION=1 ---> PIN=8)
+;;             ...
+;;             (POSITION=16 ---> PIN=12)
+;;             ...
+;; and so on.               
 (define (process-pin-data input)
   
   ;; First we take the string between brackets (str-index-of is defined below)
@@ -262,7 +312,66 @@
           )
   )
   (printf "DEBUG -> PORT-MAPPING-TABLE is ~a \n" PORT-MAPPING-TABLE)
-)
+) ;; End of process-pin-data
+
+
+;; If a digital pin set to input mode changes, the board notifies 
+;; us with a message on the input stream. The message has the form:
+;; @I,d,4,AB
+;; where 4 is the port number and AB is a hex number with the value
+;; of the pins in that port. For instance, AB in binary is  10101011
+;; meaning that the pin corresponding to position 1 in port 4 has value 1,
+;; pin corresponding to position 2 in port 4 has value 0, etc..
+(define (process-port-data input) 
+  ;; FIXME: we should really check that PORT-MAPPING-TABLE exists before doing
+  ;; anything here...
+  (define port (string->number (string-append "#x" (substring input 5 6))))
+  (define bitmask (string->number (string-append "#x" (substring input 7))))
+  (printf "DEBUG -> The values for port ~a are ~a \n" port bitmask)
+  
+  ;; Now we need to convert the value of a port back to pin values.
+  ;; Let's retrieve the mapping for this port
+  (define singlePortMap (hash-ref PORT-MAPPING-TABLE port))
+
+  ;; Easy: we take the bitwise-and of the port with the position;
+  ;; if it is not zero we set pin to HIGH, and to LOW otherwise
+  (hash-for-each singlePortMap 
+                 (lambda (x y) 
+                          (vector-set! DIGITAL-IO-PINS y 
+                                       (cond 
+                                         ( (equal? (bitwise-and bitmask x) 0) LOW)
+                                         (else HIGH)
+                                         )
+                                       )
+                          )
+                 )
+  ;;(printf "DEBUG -> The current pin values are: ~a" DIGITAL-IO-PINS)
+  ) ;; end of process-port-data
+
+
+;; A message from Arduino had this shape: @I,a,3,{0:320,1:340,2:329}
+;; (this are analog pins: 3 of them are set, analog pins 0, 1 and 2 in
+;; this case, and their values are in brackets).
+;; REMEMBER to set auto-reporting with set-autoreport, or it won't work :-)
+(define (process-analog-values input) 
+  ;; First we take the string between brackets (str-index-of is defined below)
+  ;; and split to obtain a list of the form "0:320" "1:340" etc.
+  (define analogValues (string-split (substring input 
+                           (+ (str-index-of input "{") 1)
+                           (str-index-of input "}") ) ",") )
+  
+  ;; we then map a function to set the analog pins.
+  (map (λ (x) (vector-set! ANALOG-IO-PINS
+         (string->number (first (string-split x ":")))  ;; the pin
+         (string->number (second (string-split x ":"))) ;; the value
+         ) ) ;; end of lambda
+       ) ;; end of map
+  
+  (printf "The current value of analog pins is: ~a \n" ANALOG-IO-PINS)
+  
+  ) ;; end process-analog-values
+
+
 
 ;; Find the index of something in a list (I couldn't find a function for this!)
 ;; Copied from stackoverflow and slightly modified. str and x need to be string
@@ -270,8 +379,3 @@
 (define (str-index-of str x)
   (define l (string->list str))
   (for/or ([y l] [i (in-naturals)] #:when (equal? (string-ref x 0) y)) i))
-
-;; - @I,a,3,{0:320,1:340,2:329}
-;; (this are analog pins: 3 of them are set, analog pins 0, 1 and 2 in
-;; this case, and their values are in bracket).
-

@@ -30,6 +30,14 @@
          clear-arduino-pin! ;; shorthand for digital-write, for backward compatibility
          set-pin-mode! ;; synonym of set-pin-mode, for backward compatibility
          
+         ;; Quickly hacked together for NeoPixels test.
+         ;; TODO: we should have a list of services that is built at run-time
+         ;; (see Java version)
+         set-pixel-color
+         set-strip-brightness
+         show-strip
+         ;; -- End of neopixels --
+         
          ;; pin modes
          UNKNOWN_MODE
          INPUT_MODE
@@ -64,8 +72,12 @@
 ;; Copied from racket-firmata.rkt
 (define BAUDRATE           "57600")
 
-(define (open-asip) 
-  (define port-name (get-port))
+(define (open-asip [port "NONE"])
+  (define port-name port)
+  (cond ( (equal? port "NONE")
+          (set! port-name (get-port))
+          )
+        )
   ;; We set the command line instruction to configure the serial port according to the OS;
   ;; we also configure the file name of the port to be opened (it is different in win)
   (define call-string null)
@@ -227,6 +239,34 @@
 (define request-port-mapping (λ () (write-string (string-append IO_SERVICE "," PORT_MAPPING "\n") out)) )
 
 
+(define set-pixel-color (λ (strip pin red green blue) 
+                          (write-string (string-append "N,C," 
+                                                       (number->string strip) ","
+                                                       (number->string pin) "," 
+                                                       (number->string red) "," 
+                                                       (number->string green) "," 
+                                                       (number->string blue) "\n")
+                                                       out)
+                                        )
+  ) ;; end of set-pixel-color
+
+(define show-strip (λ (strip)
+                      (write-string (string-append "N,S," (number->string strip) "\n")
+                                                   out)
+                     )
+  ) ;; end of show-strip
+
+(define set-strip-brightness (λ (strip brightness)
+                               (write-string (string-append "N,B,"
+                                                       (number->string strip)
+                                                       ","
+                                                       (number->string brightness)
+                                                       "\n"
+                                                       )
+                                             out )
+                               )
+  )
+  
 ;; *** END OF FUNCTIONS TO WRITE TO ARDUINO ***
 
 

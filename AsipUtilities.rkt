@@ -38,7 +38,7 @@
       #f))
 
 (define (find-mac-port)
-  (string-append "/dev/" (path->string (first (for/list ([f (directory-list "/dev")] #:when (regexp-match? "tty.usbmodem*" f))
+  (string-append "/dev/" (path->string (first (for/list ([f (directory-list "/dev")] #:when (regexp-match? "tty.usbmodem*|tty.usbserialtty.usbmodem*" f))
      f))))
   )
 

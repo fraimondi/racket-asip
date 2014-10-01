@@ -128,12 +128,14 @@
 	   (error "Failed to open the connection with " port-name " verify if your microcontroller is plugged in correctly"))            
 	 )               
 	)
-  (sleep 1)
+  (sleep 0.2)
   ;; We request port mapping so that we know that we have it later on
   (request-port-mapping)
-  (sleep 1)
+  (sleep 0.2)
   (request-port-mapping)
-  (sleep 1)
+  (sleep 0.2)
+  (define orig-exception (uncaught-exception-handler))
+  (uncaught-exception-handler (λ (e) (close-asip) (orig-exception e)))
   ) ;; end of open-asip
 
 (define (close-asip)

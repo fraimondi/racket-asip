@@ -91,19 +91,25 @@
      (set! call-string (string-append  "stty -f " port-name " " BAUDRATE " cs8 cread clocal"))
      (set! filename port-name))
    ( (equal? os "win") 
-     (set! call-string (string-append  "mode " port-name ": baud=" BAUDRATE " parity=N data=8 stop=1"))
-     (set! filename (string-append "\\\\.\\" port-name)))
+     (set! call-string (string-append  "mode " port-name ": baud=" BAUDRATE " parity=N data=8 stop=1 dtr=on"))
+     (set! filename (string-append "\\\\?\\" port-name)))
    ) ;; end of cond to set stty or mode string and filename.
 
   (cond ( (equal? os "win") 
 	  (if (system call-string) ;; here we set the port
 	      (begin
-	       (let-values ([(in-port out-port) (open-input-output-file filename)])
+	       (let-values ([(in-port out-port) (open-input-output-file filename #:mode 'binary #:exists 'append)])
 			   (set! in in-port)
 			   (set! out out-port)
-			   (file-stream-buffer-mode out 'none)
+			   ;(file-stream-buffer-mode out 'none)
+                           ;(file-stream-buffer-mode in 'none)
 			   )
-	       (sleep 3)
+	       (sleep 2)
+               ;; This is here for a reason. But I won't tell you. Ah ah ah!!!
+               (set-pin-mode 14 ANALOG_MODE)
+               (sleep 0.1)
+               (set-autoreport 50)
+               (sleep 0.1)
 	       (set! read-thread (thread (lambda ()  (read-hook)))) ;; we set the reading thread
 	       #t)
 	    (error "Failed to open the connection with " port-name " verify if your microcontroller is plugged in correctly"))            
@@ -210,24 +216,28 @@
 ;;			(number->string mode) ))
   (write-string (string-append IO_SERVICE "," PIN_MODE "," (number->string pin) "," 
 			(number->string mode) "\n") out)
+  (flush-output out)
   #t
 )
 
 ;; Writing a value (high or low) to a digital pin
 (define (digital-write pin value)
-  (write-string (string-append IO_SERVICE "," DIGITAL_WRITE "," (number->string pin) 
-			"," (number->string value) "\n") out)
+  (write-bytes (string->bytes/locale (string-append IO_SERVICE "," DIGITAL_WRITE "," (number->string pin) 
+			"," (number->string value) "\n")) out)
+  (flush-output out)
   #t
 )
 
 (define (analog-write pin value)
   (write-string (string-append IO_SERVICE "," ANALOG_WRITE "," (number->string pin) 
 			"," (number->string value) "\n") out)
+  (flush-output out)
 )
 
 ;; Set auto-reporting for I/O to a certain time in ms (needed for analog input pins)
 (define (set-autoreport timems)
   (write-string (string-append IO_SERVICE "," AUTOEVENT_MESSAGE "," (number->string timems) "\n") out)
+  (flush-output out)
 )
 
 ;; Utility functions for compatibility with old Firmata code
@@ -236,7 +246,10 @@
 (define set-pin-mode! set-pin-mode)
 
 ;; Just request the port mapping
-(define request-port-mapping (λ () (write-string (string-append IO_SERVICE "," PORT_MAPPING "\n") out)) )
+(define request-port-mapping (λ () 
+                               (write-string (string-append IO_SERVICE "," PORT_MAPPING "\n") out)
+                               (flush-output out)
+                               ) )
 
 
 (define set-pixel-color (λ (strip pin red green blue) 
@@ -247,12 +260,14 @@
                                                        (number->string green) "," 
                                                        (number->string blue) "\n")
                                                        out)
+                          (flush-output out)
                                         )
   ) ;; end of set-pixel-color
 
 (define show-strip (λ (strip)
                       (write-string (string-append "N,S," (number->string strip) "\n")
                                                    out)
+                     (flush-output out)
                      )
   ) ;; end of show-strip
 
@@ -264,6 +279,7 @@
                                                        "\n"
                                                        )
                                              out )
+                               (flush-output out)
                                )
   )
   
@@ -290,11 +306,29 @@
 ;; then calls process-input
 (define (read-loop)
   ;; We read a whole line (ASIP messages are terminated with a \n
+  ;;(process-input (our-read-line in))
   (process-input (read-line in))
   (read-loop))
 
+(define our-read-line (λ (in) 
+                        (define gohere 
+                          (λ (curmsg) 
+                            (define curchar (read-byte in))
+                            (cond ( (not (equal? curchar 10))
+                                    (gohere (bytes-append curmsg (bytes curchar)))
+                                    )
+                                  (else 
+                                   (bytes->string/locale curmsg)
+                                   )
+                                  )
+                            )
+                          )
+                        (gohere (bytes ))
+                        )
+  )
+
 (define (process-input input)
-  (printf "DEBUG -> I have received: ~a \n" input)
+  ;;(printf "DEBUG -> I have received: ~a \n" input)
   (cond ( (> (string-length input) 1)
           (let  ([char (substring input 0 1)])
             (cond
@@ -439,7 +473,7 @@
          ) ) analogValues ;; end of lambda
        ) ;; end of map
   
-  (printf "The current value of analog pins is: ~a \n" ANALOG-IO-PINS)
+  ;;(printf "The current value of analog pins is: ~a \n" ANALOG-IO-PINS)
   
   ) ;; end process-analog-values
 

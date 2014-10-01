@@ -56,6 +56,7 @@
             )
           )
     (set! oldInput curInput)
+    (sleep 0.01)
     (lightLoop)
     ) ;; end of lambda
   )

@@ -106,10 +106,10 @@
 			   )
 	       (sleep 2)
                ;; This is here for a reason. But I won't tell you. Ah ah ah!!!
-               (set-pin-mode 14 ANALOG_MODE)
-               (sleep 0.1)
-               (set-autoreport 50)
-               (sleep 0.1)
+               ;;;(set-pin-mode 14 ANALOG_MODE)
+               ;;;(sleep 0.1)
+               ;;;(set-autoreport 50)
+               ;;;(sleep 0.1)
 	       (set! read-thread (thread (lambda ()  (read-hook)))) ;; we set the reading thread
 	       #t)
 	    (error "Failed to open the connection with " port-name " verify if your microcontroller is plugged in correctly"))            
@@ -308,8 +308,8 @@
 ;; then calls process-input
 (define (read-loop)
   ;; We read a whole line (ASIP messages are terminated with a \n
-  ;;(process-input (our-read-line in))
-  (process-input (read-line in))
+  (process-input (our-read-line in))
+  ;;(process-input (read-line in))
   (read-loop))
 
 (define our-read-line (λ (in) 

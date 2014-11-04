@@ -400,7 +400,7 @@
   (for ([i (length ports)])
     ;; the pin is i; the port is the first element of the pair; the bit is the second element.
     ;; we attach #x in front to denote that it's a hex number
-    (define port (string->number (string-append "#x" (first (string-split (list-ref ports i) ":")))))
+    (define port (string->number (first (string-split (list-ref ports i) ":"))))
     (define position (string->number (string-append "#x" 
                                                     (second (string-split (list-ref ports i) ":")))))
   

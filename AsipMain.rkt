@@ -61,6 +61,9 @@
          getIR
          leftBump?
          rightBump?
+         enableIR
+         enableBumpers
+         enableCounters
          )
 
 ; bit-operations
@@ -359,6 +362,37 @@
                   out)
     )
   )
+
+(define enableIR
+  (λ (interval)
+    (write-string (string-append IR_SERVICE "," 
+                                 AUTOEVENT_MESSAGE ","
+                                 (number->string interval) 
+                                 "\n")
+                  out)
+    )
+  )
+
+(define enableBumpers
+  (λ (interval)
+    (write-string (string-append BUMPER_SERVICE "," 
+                                 AUTOEVENT_MESSAGE ","
+                                 (number->string interval) 
+                                 "\n")
+                  out)
+    )
+  )
+
+(define enableCounters
+  (λ (interval)
+    (write-string (string-append ENCODER_SERVICE "," 
+                                 AUTOEVENT_MESSAGE ","
+                                 (number->string interval) 
+                                 "\n")
+                  out)
+    )
+  )
+
 
 ;; *** END OF FUNCTIONS TO WRITE TO ARDUINO ***
 
@@ -758,5 +792,11 @@
 
 (define (test)
   (open-asip)
+  (enableIR 100)
+  (sleep 0.1)
+  (enableCounters 100)
+  (sleep 0.1)
+  (enableBumpers 100)
+  (sleep 0.1)
   (testLoop)
   )

@@ -689,7 +689,7 @@
          
                                                         (str-index-of input "}") ) ",") )
          (set! IR-VALUES (list->vector 
-                          (map (λ (x) (string->number x) irValues)) 
+                          (map (λ (x) (string->number x)) irValues) 
                           )
                )
          ]
@@ -784,9 +784,10 @@
   (sleep 1)
   (w1-stopMotor)
   (w2-stopMotor)
-  (printf "IR Values: ~a ~a ~a" (getIR 0) (getIR 1) (getIR 2))
-  (printf "Bumpers: ~a ~a" (leftBump?) (rightBump?))
-  (printf "Count values: ~a ~a" (readCount 0) (readCount 1))
+  (sleep 1)
+  (printf "IR Values: ~a ~a ~a \n" (getIR 0) (getIR 1) (getIR 2))
+  (printf "Bumpers: ~a ~a \n" (leftBump?) (rightBump?))
+  (printf "Count values: ~a ~a \n" (readCount 0) (readCount 1))
   (testLoop)
 )
 

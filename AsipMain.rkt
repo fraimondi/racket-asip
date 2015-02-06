@@ -712,30 +712,51 @@
 ;; of bounds requests!
 
 ;; reset and read encoders
-(define (resetCount) 
+(define resetCount 
   (λ (num) 
     (vector-set! MOTOR-COUNT num 0)
     )
   )
 
-(define (readCount) 
+(define readCount 
   (λ (num)
     (vector-ref MOTOR-COUNT num)
     )
   )
 
 ;; read one IR value
-(define (getIR)
+(define getIR
   (λ (num)
     (vector-ref IR-VALUES num)
     )
   )
 
 ;; Boolean functions for bump sensors
-(define (rightBump?) 
+(define rightBump? 
   (λ () (vector-ref BUMP-VALUES 0))
   )
-(define (leftBump?)
+(define leftBump?
     (λ () (vector-ref BUMP-VALUES 1))
   )
 
+(define (testLoop)
+  (setMotor 0 200)
+  (sleep 1)
+  (stopMotors)
+  (setMotor 1 200)
+  (sleep 1)
+  (stopMotors)
+  (setMotors -100 100)
+  (sleep 1)
+  (w1-stopMotor)
+  (w2-stopMotor)
+  (printf "IR Values: ~a ~a ~a" (getIR 0) (getIR 1) (getIR 2))
+  (printf "Bumpers: ~a ~a" (leftBump?) (rightBump?))
+  (printf "Count values: ~a ~a" (readCount 0) (readCount 1))
+  (testLoop)
+)
+
+(define (test)
+  (open-asip)
+  (testLoop)
+  )

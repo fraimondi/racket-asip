@@ -4,7 +4,7 @@
 ;; **** RACKET ASIP CLIENT ****
 ;; ****************************
 
-;; Authors: Franco Raimondi and Micky Silas
+;; Authors: Franco Raimondi
 ;; For information regarding the ASIP protocol, please
 ;; see https://github.com/michaelmargolis/asip
 
@@ -14,10 +14,8 @@
 ;; values to arrays of bit values, see below.
 
 ;; How to use it: you can use any of the functions and constants exported
-;; below in the (provide... ) block. This is a minimal example:
+;; below in the (provide... ) block. 
 
-
-;; TODO [FR]: Here we may want to export something, commented for the moment.
 (provide open-asip
          close-asip
          set-pin-mode
@@ -51,6 +49,18 @@
          ;; Arduino HIGH and LOW (1 and 0)
          HIGH
          LOW
+         
+         ;; Myrtle-specific function
+         w1-stopMotor
+         w2-stopMotor
+         stopMotors
+         setMotor
+         setMotors
+         readCount
+         resetCount
+         getIR
+         leftBump?
+         rightBump?
          )
 
 ; bit-operations
@@ -181,7 +191,6 @@
 (define PORT_DATA               "d")
 (define ANALOG_VALUE            "a")
 (define PORT_MAPPING            "M")
-
 ;; Pin modes
 (define UNKNOWN_MODE             0)
 (define INPUT_MODE               1)
@@ -196,6 +205,24 @@
 (define LOW                      0)
 ;; *** END ASIP CONSTANTS FOR I/O SERVICE ***
 
+;; *** DEFINITION OF ASIP CONSTANTS FOR MOTOR (HUB-EE WHEELS) SERVICE ***
+(define MOTOR_SERVICE           "M")
+(define SET_MOTOR_SPEED         "m")
+
+;; *** DEFINITION OF ASIP CONSTANTS FOR ENCODERS (HUB-EE WHEELS) SERVICE ***
+(define ENCODER_SERVICE         "E")
+;; Remember: use ASIP_EVENT and AUTOEVENT_MESSAGE
+;; to read and configure this service
+
+;; *** DEFINITION OF ASIP CONSTANTS FOR IR SERVICE
+(define IR_SERVICE              "R")
+;; Remember: use ASIP_EVENT and AUTOEVENT_MESSAGE
+;; to read and configure this service
+
+;; *** DEFINITION OF ASIP CONSTANTS FOR BUMPER SERVICE
+(define BUMPER_SERVICE              "B")
+;; Remember: use ASIP_EVENT and AUTOEVENT_MESSAGE
+;; to read and configure this service
 
 ;; *** We store digital and analog pins in fixed-length array.
 ;; FIXME: this could be improved in the future, building the arrays after
@@ -208,6 +235,15 @@
 
 ;; We store port mapping in a hash table
 (define PORT-MAPPING-TABLE (make-hash))
+
+;; To store the value of encoders
+(define MOTOR-COUNT (make-vector 2))
+
+;; To store the value of IR
+(define IR-VALUES (make-vector 3))
+
+;; To store the value of Bump sensors
+(define BUMP-VALUES (make-vector 2))
 
 
 ;; *** DEFINTIONS TO WRITE MESSAGES **TO** ARDUINO ***
@@ -284,7 +320,46 @@
                                (flush-output out)
                                )
   )
-  
+
+;; Messages for Mirtle services
+
+;; Stopping the motor with utility functions
+(define w1-stopMotor 
+  (λ () (setMotor 0 0))
+  )
+(define w2-stopMotor
+  (λ () (setMotor 1 0))
+  )
+(define stopMotors
+  (λ () 
+    (setMotor 0 0)
+    (setMotor 1 0)
+    )
+  )
+
+;; Setting both motors at the same time
+(define setMotors
+  (λ (s1 s2) 
+    (setMotor 0 s1)
+    (sleep 0.05)
+    (setMotor 1 s2)
+    )
+  )
+   
+;; The only useful one for motors is this one
+;; that sends the message
+
+(define setMotor
+  (λ (m s)
+    (write-string (string-append MOTOR_SERVICE "," 
+                                 SET_MOTOR_SPEED ","
+                                 (number->string m) ","
+                                 (number->string s) 
+                                 "\n")
+                  out)
+    )
+  )
+
 ;; *** END OF FUNCTIONS TO WRITE TO ARDUINO ***
 
 
@@ -308,8 +383,8 @@
 ;; then calls process-input
 (define (read-loop)
   ;; We read a whole line (ASIP messages are terminated with a \n
-  (process-input (our-read-line in))
-  ;;(process-input (read-line in))
+  ;;(process-input (our-read-line in))
+  (process-input (read-line in))
   (read-loop))
 
 (define our-read-line (λ (in) 
@@ -367,7 +442,39 @@
            [(equal? service PORT_MAPPING)
             (process-pin-data input)]
            [(equal? service ANALOG_VALUE)
-            (process-analog-values input)]))])))
+            (process-analog-values input)]))]
+      
+      [(equal? char MOTOR_SERVICE)
+       (process-motor-service input)]
+      
+      [(equal? char ENCODER_SERVICE)
+       (process-encoder-service input)]
+      
+      [(equal? char IR_SERVICE)
+       (process-ir-service input)
+       ]
+      
+      [(equal? char BUMPER_SERVICE)
+       (process-bump-service input)]
+      
+;;       (define MOTOR_SERVICE           "M")
+;; (define SET_MOTOR_SPEED         "m")
+
+;; *** DEFINITION OF ASIP CONSTANTS FOR ENCODERS (HUB-EE WHEELS) SERVICE ***
+;; (define ENCODER_SERVICE         "E")
+;; Remember: use ASIP_EVENT and AUTOEVENT_MESSAGE
+;; to read and configure this service
+
+;; *** DEFINITION OF ASIP CONSTANTS FOR IR SERVICE
+;;(define IR_SERVICE              "R")
+;; Remember: use ASIP_EVENT and AUTOEVENT_MESSAGE
+;; to read and configure this service
+
+;; *** DEFINITION OF ASIP CONSTANTS FOR BUMPER SERVICE
+;;(define BUMPER_SERVICE              "B")
+       
+      
+      )))
 
 
 ;; Processing port mapping is the most complicated part of ASIP. The initial message tells how to
@@ -487,3 +594,148 @@
 (define (str-index-of str x)
   (define l (string->list str))
   (for/or ([y l] [i (in-naturals)] #:when (equal? (string-ref x 0) y)) i))
+
+
+;; *** FUNCTIONS RELATED TO INCOMING MESSAGES FOR MIRTO SERVICES
+
+(define process-motor-service
+  (λ (input)
+    (printf "DEBUG: I received an unexpected message for the motor service: ~a \n" input)
+    )
+  )
+
+;; A message is something like "“@E,e,2,{3000:110,3100:120}"
+;; where 3000 is the pulse and 110 is the counter (since last
+;; message). Here I only store the counter.
+(define process-encoder-service 
+  (λ (input) 
+  ;;(printf "DEBUG -> I have received: ~a \n" input)
+    (let ([service (substring input 3 4)])
+      (cond 
+        [(equal? service ASIP_EVENT)
+         (define encoderValues (string-split (substring input 
+                                                        (+ (str-index-of input "{") 1)
+         
+                                                        (str-index-of input "}") ) ",") )
+         ;; The increment of the first counter
+         (define delta0 
+           (string->number (list-ref (string-split (list-ref encoderValues 0) ":") 1))
+           )
+
+         ;; The increment of the second counter
+         (define delta1 
+           (string->number (list-ref (string-split (list-ref encoderValues 1) ":") 1))
+           )
+         
+         (vector-set! MOTOR-COUNT 0 
+                      (+ (vector-ref MOTOR-COUNT 0)
+                         delta0 )
+                      )
+         
+         (vector-set! MOTOR-COUNT 1 
+                      (+ (vector-ref MOTOR-COUNT 1)
+                         delta1 )
+                      )        
+         ]
+        [else (printf "DEBUG: unkown message for encoder service: ~a \n" input)]
+        )
+      )
+    )
+) ;; end process-encode-service     
+
+;; An IR message is of the form @R,e,3,{100,200,300}
+(define process-ir-service 
+  (λ (input) 
+  ;;(printf "DEBUG -> I have received: ~a \n" input)
+    (let ([service (substring input 3 4)])
+      (cond 
+        [(equal? service ASIP_EVENT)
+         (define irValues (string-split (substring input 
+                                                        (+ (str-index-of input "{") 1)
+         
+                                                        (str-index-of input "}") ) ",") )
+         (set! IR-VALUES (list->vector 
+                          (map (λ (x) (string->number x) irValues)) 
+                          )
+               )
+         ]
+        [else (printf "DEBUG: unkown message for IR service: ~a \n" input)]
+        )
+      )
+    )
+) ;; end process-ir-service  
+
+;; A bumper message is of the form @B,e,2,{0,1}
+(define process-bump-service
+  (λ (input) 
+  ;;(printf "DEBUG -> I have received: ~a \n" input)
+    (let ([service (substring input 3 4)])
+      (cond 
+        [(equal? service ASIP_EVENT)
+         (define bumperValues (string-split (substring input 
+                                                        (+ (str-index-of input "{") 1)
+         
+                                                        (str-index-of input "}") ) ",") )
+         (set! BUMP-VALUES (list->vector 
+                          (map (λ (x) 
+                                 (cond [(equal? x "0") #f]
+                                       [else #t]))
+                                 bumperValues) 
+                          )
+               )
+         ]
+        [else (printf "DEBUG: unkown message for Bumper service: ~a \n" input)]
+        )
+      )
+    )  
+  ) ;; end of process-bump-service
+      
+;;       (define MOTOR_SERVICE           "M")
+;; (define SET_MOTOR_SPEED         "m")
+
+;; *** DEFINITION OF ASIP CONSTANTS FOR ENCODERS (HUB-EE WHEELS) SERVICE ***
+;; (define ENCODER_SERVICE         "E")
+;; Remember: use ASIP_EVENT and AUTOEVENT_MESSAGE
+;; to read and configure this service
+
+;; *** DEFINITION OF ASIP CONSTANTS FOR IR SERVICE
+;;(define IR_SERVICE              "R")
+;; Remember: use ASIP_EVENT and AUTOEVENT_MESSAGE
+;; to read and configure this service
+
+;; *** DEFINITION OF ASIP CONSTANTS FOR BUMPER SERVICE
+;;(define BUMPER_SERVICE              "B")
+
+
+;; Other utility functions for Myrtle
+;; TODO: Add error checking, esp. for out 
+;; of bounds requests!
+
+;; reset and read encoders
+(define (resetCount) 
+  (λ (num) 
+    (vector-set! MOTOR-COUNT num 0)
+    )
+  )
+
+(define (readCount) 
+  (λ (num)
+    (vector-ref MOTOR-COUNT num)
+    )
+  )
+
+;; read one IR value
+(define (getIR)
+  (λ (num)
+    (vector-ref IR-VALUES num)
+    )
+  )
+
+;; Boolean functions for bump sensors
+(define (rightBump?) 
+  (λ () (vector-ref BUMP-VALUES 0))
+  )
+(define (leftBump?)
+    (λ () (vector-ref BUMP-VALUES 1))
+  )
+

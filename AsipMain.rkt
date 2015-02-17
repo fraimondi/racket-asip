@@ -57,6 +57,7 @@
          setMotor
          setMotors
          readCount
+         getCount
          resetCount
          getIR
          leftBump?
@@ -757,6 +758,8 @@
     (vector-ref MOTOR-COUNT num)
     )
   )
+
+(define getCount readCount) ;; just a synonim
 
 ;; read one IR value
 (define getIR

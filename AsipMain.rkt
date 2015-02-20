@@ -115,8 +115,8 @@
 	       (let-values ([(in-port out-port) (open-input-output-file filename #:mode 'binary #:exists 'append)])
 			   (set! in in-port)
 			   (set! out out-port)
-			   ;(file-stream-buffer-mode out 'none)
-                           ;(file-stream-buffer-mode in 'none)
+			   (file-stream-buffer-mode out 'none)
+                           ;(file-stream-buffer-mode in 'line)
 			   )
 	       (sleep 2)
                ;; This is here for a reason. But I won't tell you. Ah ah ah!!!
@@ -148,8 +148,8 @@
   (sleep 0.2)
   (request-port-mapping)
   (sleep 0.2)
-  (define orig-exception (uncaught-exception-handler))
-  (uncaught-exception-handler (λ (e) (close-asip) (orig-exception e)))
+  ;(define orig-exception (uncaught-exception-handler))
+  ;(uncaught-exception-handler (λ (e) (close-asip) (orig-exception e)))
   ) ;; end of open-asip
 
 (define (close-asip)
@@ -419,23 +419,28 @@
 (define (read-loop)
   ;; We read a whole line (ASIP messages are terminated with a \n
   ;;(process-input (our-read-line in))
-  (process-input (read-line in))
+
+  ;; Franco: usual old problem on win machines?
+  (define incomingData (read-line in))
+  (cond ( (not (eof-object? incomingData))          
+          (with-handlers ([(lambda (v) #t) (lambda (v) #t)]) 
+            (process-input incomingData)
+            )
+          )
+        )
   (read-loop))
 
 (define our-read-line (λ (in) 
                         (define gohere 
                           (λ (curmsg) 
                             (define curchar (read-byte in))
-                            (cond ( (not (equal? curchar 10))
-                                    (gohere (bytes-append curmsg (bytes curchar)))
-                                    )
-                                  (else 
-                                   (bytes->string/locale curmsg)
-                                   )
-                                  )
+                            (cond 
+                              ((or (eof-object? curchar) (equal? curchar 10)) (bytes->string/locale curmsg))
+                              (else (gohere (bytes-append curmsg (bytes curchar))))
+                              )
                             )
                           )
-                        (gohere (bytes ))
+                        (gohere (bytes))
                         )
   )
 
@@ -606,16 +611,17 @@
 (define (process-analog-values input) 
   ;; First we take the string between brackets (str-index-of is defined below)
   ;; and split to obtain a list of the form "0:320" "1:340" etc.
+  
   (define analogValues (string-split (substring input 
-                           (+ (str-index-of input "{") 1)
-                           (str-index-of input "}") ) ",") )
+                                                (+ (str-index-of input "{") 1)
+                                                (str-index-of input "}") ) ",") )
   
   ;; we then map a function to set the analog pins.
   (map (λ (x) (vector-set! ANALOG-IO-PINS
-         (string->number (first (string-split x ":")))  ;; the pin
-         (string->number (second (string-split x ":"))) ;; the value
-         ) ) analogValues ;; end of lambda
-       ) ;; end of map
+                           (string->number (first (string-split x ":")))  ;; the pin
+                           (string->number (second (string-split x ":"))) ;; the value
+                           ) ) analogValues ;; end of lambda
+                               ) ;; end of map
   
   ;;(printf "The current value of analog pins is: ~a \n" ANALOG-IO-PINS)
   

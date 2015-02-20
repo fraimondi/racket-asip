@@ -38,7 +38,7 @@
       #f))
 
 (define (find-mac-port)
-  (string-append "/dev/" (path->string (first (for/list ([f (directory-list "/dev")] #:when (regexp-match? "tty.usbmodem*|tty.usbserialtty.usbmodem*" f))
+  (string-append "/dev/" (path->string (first (for/list ([f (directory-list "/dev")] #:when (regexp-match? "tty.usbmodem*|tty.usbserialtty.usbmodem*|tty.usbserial*" f))
      f))))
   )
 
@@ -48,7 +48,7 @@
 (define (get-port)
   (define os (detect-os))
   (match os
-    ("linux" (or (find-port file-exists? "/dev/ttyACM" 0)  (find-port file-exists? "/dev/ttyAMA" 0)))
+    ("linux" (or (find-port file-exists? "/dev/ttyACM" 0)  (find-port file-exists? "/dev/ttyAMA" 0) (find-port file-exists? "/dev/ttyUSB" 0) ))
     ;; hopefully there is nothing attached above port 3... You may need to change this.
     ("win" (find-port valid-com-port "COM" 3))
     ("mac" (find-mac-port))

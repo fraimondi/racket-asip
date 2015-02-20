@@ -713,7 +713,7 @@
                                                         (str-index-of input "}") ) ",") )
          (set! BUMP-VALUES (list->vector 
                           (map (λ (x) 
-                                 (cond [(equal? x "0") #f]
+                                 (cond [(equal? x "1") #f]
                                        [else #t]))
                                  bumperValues) 
                           )
@@ -770,10 +770,10 @@
 
 ;; Boolean functions for bump sensors
 (define rightBump? 
-  (λ () (vector-ref BUMP-VALUES 0))
+  (λ () (vector-ref BUMP-VALUES 1))
   )
 (define leftBump?
-    (λ () (vector-ref BUMP-VALUES 1))
+    (λ () (vector-ref BUMP-VALUES 0))
   )
 
 (define (testLoop)

@@ -247,7 +247,7 @@
 (define IR-VALUES (make-vector 3))
 
 ;; To store the value of Bump sensors
-(define BUMP-VALUES (make-vector 2))
+(define BUMP-VALUES (make-vector 2 #f))
 
 
 ;; *** DEFINTIONS TO WRITE MESSAGES **TO** ARDUINO ***

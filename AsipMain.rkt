@@ -579,7 +579,7 @@
   ;; anything here...
   (define port (string->number (string-append "#x" (substring input 5 6))))
   (define bitmask (string->number (string-append "#x" (substring input 7))))
-  (printf "DEBUG -> The values for port ~a are ~a \n" port bitmask)
+  ;;(printf "DEBUG -> The values for port ~a are ~a \n" port bitmask)
   
   ;; Now we need to convert the value of a port back to pin values.
   ;; Let's retrieve the mapping for this port, making sure we have this port:

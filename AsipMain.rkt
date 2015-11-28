@@ -6,7 +6,7 @@
 
 ;; Authors: Franco Raimondi
 ;; For information regarding the ASIP protocol, please
-;; see https://github.com/michaelmargolis/asip
+;; see https://bitbucket.com/mdxmase/asip
 
 ;; The basic idea is similar to racket-firmata: we set up input and output 
 ;; streams attached to a serial port. The main thread (this one) deals with
@@ -28,13 +28,8 @@
          clear-arduino-pin! ;; shorthand for digital-write, for backward compatibility
          set-pin-mode! ;; synonym of set-pin-mode, for backward compatibility
          
-         ;; Quickly hacked together for NeoPixels test.
-         ;; TODO: we should have a list of services that is built at run-time
-         ;; (see Java version)
-         set-pixel-color
-         set-strip-brightness
-         show-strip
-         ;; -- End of neopixels --
+         setServo ;; a function to move a servo (TODO: check that the board supports servos!)
+         playTone ;; a function to play a tone (TODO: check that the board supports tones!)
          
          ;; pin modes
          UNKNOWN_MODE
@@ -50,7 +45,7 @@
          HIGH
          LOW
          
-         ;; Myrtle-specific function
+         ;; Myrtle-specific functions
          w1-stopMotor
          w2-stopMotor
          stopMotors
@@ -65,6 +60,10 @@
          enableIR
          enableBumpers
          enableCounters
+         setLCDMessage
+         clearLCD
+         setPixelColour
+         setBrightness
          )
 
 ; bit-operations
@@ -209,6 +208,18 @@
 (define LOW                      0)
 ;; *** END ASIP CONSTANTS FOR I/O SERVICE ***
 
+
+;; *** OTHER SERVICES provided by https://bitbucket.org/mdxmase/asip-additional-services ***
+;; *** DEFINITION OF ASIP CONSTANTS FOR SERVO SERVICE ***
+(define SERVO_SERVICE               "S")
+(define SET_SERVO_ANGLE             "W")
+
+;; *** DEFINITION OF ASIP CONSTANTS FOR TONE SERVICE ***
+(define TONE_SERVICE               "T")
+(define PLAY_TONE                  "P")
+
+
+;; OTHER SERVICES FOR THE MIRTO ROBOT, see https://bitbucket.org/mdxmase/asip-mirtle2015
 ;; *** DEFINITION OF ASIP CONSTANTS FOR MOTOR (HUB-EE WHEELS) SERVICE ***
 (define MOTOR_SERVICE           "M")
 (define SET_MOTOR_SPEED         "m")
@@ -227,6 +238,19 @@
 (define BUMPER_SERVICE              "B")
 ;; Remember: use ASIP_EVENT and AUTOEVENT_MESSAGE
 ;; to read and configure this service
+
+;; *** DEFINITION OF ASIP CONSTANTS FOR LCD SERVICE
+(define LCD_SERVICE                 "L")
+(define LCD_WRITE                   "W")
+(define LCD_CLEAR                   "C")
+
+
+;; *** DEFINITION OF ASIP CONSTANTS FOR NEOPIXELS ***
+(define PIXEL_SERVICE               "P")
+(define SET_PIXELS                  "P") ;; TODO: implement this for a strip
+(define SET_PIXEL_SEQUENCE          "S") ;; TODO: implement this
+(define SET_BRIGHTNESS              "B")
+(define GET_NUMBER_PIXELS           "I") ;; TODO: implement this
 
 ;; *** We store digital and analog pins in fixed-length array.
 ;; FIXME: this could be improved in the future, building the arrays after
@@ -292,38 +316,6 @@
                                (write-string (string-append IO_SERVICE "," PORT_MAPPING "\n") out)
                                (flush-output out)
                                ) )
-
-
-(define set-pixel-color (λ (strip pin red green blue) 
-                          (write-string (string-append "N,C," 
-                                                       (number->string strip) ","
-                                                       (number->string pin) "," 
-                                                       (number->string red) "," 
-                                                       (number->string green) "," 
-                                                       (number->string blue) "\n")
-                                                       out)
-                          (flush-output out)
-                                        )
-  ) ;; end of set-pixel-color
-
-(define show-strip (λ (strip)
-                      (write-string (string-append "N,S," (number->string strip) "\n")
-                                                   out)
-                     (flush-output out)
-                     )
-  ) ;; end of show-strip
-
-(define set-strip-brightness (λ (strip brightness)
-                               (write-string (string-append "N,B,"
-                                                       (number->string strip)
-                                                       ","
-                                                       (number->string brightness)
-                                                       "\n"
-                                                       )
-                                             out )
-                               (flush-output out)
-                               )
-  )
 
 ;; Messages for Mirtle services
 
@@ -392,6 +384,76 @@
                                  "\n")
                   out)
     )
+  )
+
+(define setServo
+  (λ (m s)
+    (write-string (string-append SERVO_SERVICE "," 
+                                 SET_SERVO_ANGLE ","
+                                 (number->string m) ","
+                                 (number->string s) 
+                                 "\n")
+                  out)
+    )
+  )
+
+(define playTone
+  (λ (t d) ;; t in Hz, d in ms is the duration
+    (write-string (string-append TONE_SERVICE ","
+                                 PLAY_TONE ","
+                                 (number->string t) ","
+                                 (number->string d) ","
+                                 "\n")
+                  out)
+    )
+  )
+
+(define setLCDMessage
+  (λ (m r) ;; m = message to be displayed; r = row (max 4 rows)
+    (write-string (string-append LCD_SERVICE ","
+                                 LCD_WRITE ","
+                                 m ","
+                                 (number->string r) ","
+                                 "\n")
+                  out)
+    )
+  )
+
+(define clearLCD
+  (λ ()
+    (write-string (string-append LCD_SERVICE ","
+                                 LCD_CLEAR 
+                                 "\n"
+                                 )
+                  )
+    )
+  )
+
+;; The robot has just one LED. The generic request would be:
+;;  "P,P,count,{pixel:color,...}\n", where first pixel is 0
+;; and colour is obtained form an RGB triple (r,g,b) with:
+;; (255^2 * r) + 256*g + b;
+(define setPixelColour
+;; the function takes a triple of colours
+  (λ (r g b)
+    (let ( [colour (+ (* 256 256 r) (* 256 g) b)])
+      (write-string (string-append PIXEL_SERVICE ","
+                                 SET_PIXELS ",1{0:"
+                                 (number->string colour) "}"
+                                 "\n")
+                  out)
+      )
+    )
+  )
+
+(define setBrightness
+  (λ (b)
+     (write-string (string-append PIXEL_SERVICE ","
+                                 SET_BRIGHTNESS ","
+                                 (number->string b)
+                                 "\n")
+                  out)
+      )
   )
 
 

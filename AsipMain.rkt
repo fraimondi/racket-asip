@@ -397,14 +397,17 @@
     )
   )
 
+;; This one is blocking (see sleep below)
 (define playTone
   (λ (t d) ;; t in Hz, d in ms is the duration
     (write-string (string-append TONE_SERVICE ","
                                  PLAY_TONE ","
                                  (number->string t) ","
-                                 (number->string d) ","
+                                 (number->string d)
                                  "\n")
                   out)
+    (sleep (/ d 1000))
+    (sleep 0.01)
     )
   )
 
@@ -412,8 +415,8 @@
   (λ (m r) ;; m = message to be displayed; r = row (max 4 rows)
     (write-string (string-append LCD_SERVICE ","
                                  LCD_WRITE ","
-                                 m ","
                                  (number->string r) ","
+                                 m
                                  "\n")
                   out)
     )
@@ -425,7 +428,7 @@
                                  LCD_CLEAR 
                                  "\n"
                                  )
-                  )
+                  out)
     )
   )
 
@@ -438,7 +441,7 @@
   (λ (r g b)
     (let ( [colour (+ (* 256 256 r) (* 256 g) b)])
       (write-string (string-append PIXEL_SERVICE ","
-                                 SET_PIXELS ",1{0:"
+                                 SET_PIXELS ",1,{0:"
                                  (number->string colour) "}"
                                  "\n")
                   out)
@@ -448,12 +451,12 @@
 
 (define setBrightness
   (λ (b)
-     (write-string (string-append PIXEL_SERVICE ","
+    (write-string (string-append PIXEL_SERVICE ","
                                  SET_BRIGHTNESS ","
                                  (number->string b)
                                  "\n")
                   out)
-      )
+    )
   )
 
 
@@ -870,5 +873,30 @@
   (sleep 0.1)
   (enableBumpers 100)
   (sleep 0.1)
-  (testLoop)
+  (displayln "Playing 3 notes")
+  (playTone 262 500)
+  (playTone 294 500)
+  (playTone 330 500)
+  (sleep 5)
+  (displayln "Clearing LCD and sending messages")
+  ;;(clearLCD)
+  ;;(setLCDMessage "0123456789ABCDEFGHILMNOPQRST" 1)
+  ;;(setLCDMessage "      Hello" 2)
+  ;;(setLCDMessage "      World" 3)
+  ;;(setLCDMessage "   **********" 4)
+  (sleep 1)
+  (displayln "Playing 3 notes")
+  (playTone 330 500)
+  (playTone 294 500)
+  (playTone 262 500)
+  (displayln "Changing brightness")
+  (setBrightness 150) 
+  (displayln "Changing colour")
+  (setPixelColour 255 0 0)
+  (sleep 1)
+  (setPixelColour 0 255 0)
+  (sleep 1)
+  (setPixelColour 0 0 255)
+  (displayln "Starting the loop")
+  ;;(testLoop)
   )

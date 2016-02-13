@@ -84,6 +84,7 @@
 ;; This function creates in and out and sets the read thread.
 ;; Copied from racket-firmata.rkt
 (define BAUDRATE           "57600")
+(define SLEEP_SERIAL 0.03) ;; a constant sleep at the end of each write
 
 (define (open-asip [port "NONE"])
   (define port-name port)
@@ -283,6 +284,7 @@
   (write-string (string-append IO_SERVICE "," PIN_MODE "," (number->string pin) "," 
 			(number->string mode) "\n") out)
   (flush-output out)
+  (sleep SLEEP_SERIAL)
   #t
 )
 
@@ -298,12 +300,14 @@
   (write-string (string-append IO_SERVICE "," ANALOG_WRITE "," (number->string pin) 
 			"," (number->string value) "\n") out)
   (flush-output out)
+  (sleep SLEEP_SERIAL)
 )
 
 ;; Set auto-reporting for I/O to a certain time in ms (needed for analog input pins)
 (define (set-autoreport timems)
   (write-string (string-append IO_SERVICE "," AUTOEVENT_MESSAGE "," (number->string timems) "\n") out)
   (flush-output out)
+  (sleep SLEEP_SERIAL)
 )
 
 ;; Utility functions for compatibility with old Firmata code
@@ -315,6 +319,7 @@
 (define request-port-mapping (λ () 
                                (write-string (string-append IO_SERVICE "," PORT_MAPPING "\n") out)
                                (flush-output out)
+  (sleep SLEEP_SERIAL)
                                ) )
 
 ;; Messages for Mirtle services
@@ -337,7 +342,7 @@
 (define setMotors
   (λ (s1 s2) 
     (setMotor 0 s1)
-    (sleep 0.05)
+    (sleep SLEEP_SERIAL)
     (setMotor 1 s2)
     )
   )
@@ -353,6 +358,8 @@
                                  (number->string s) 
                                  "\n")
                   out)
+    (flush-output out)
+    (sleep SLEEP_SERIAL)
     )
   )
 
@@ -363,6 +370,8 @@
                                  (number->string interval) 
                                  "\n")
                   out)
+    (flush-output out)
+    (sleep SLEEP_SERIAL)
     )
   )
 
@@ -373,6 +382,8 @@
                                  (number->string interval) 
                                  "\n")
                   out)
+    (flush-output out)
+    (sleep SLEEP_SERIAL)
     )
   )
 
@@ -383,6 +394,8 @@
                                  (number->string interval) 
                                  "\n")
                   out)
+    (flush-output out)
+    (sleep SLEEP_SERIAL)
     )
   )
 
@@ -394,6 +407,8 @@
                                  (number->string s) 
                                  "\n")
                   out)
+    (flush-output out)
+    (sleep SLEEP_SERIAL)
     )
   )
 
@@ -406,6 +421,7 @@
                                  (number->string d)
                                  "\n")
                   out)
+    (flush-output out)
     (sleep (/ d 1000))
     (sleep 0.01)
     )
@@ -419,6 +435,8 @@
                                  m
                                  "\n")
                   out)
+    (flush-output out)
+    (sleep SLEEP_SERIAL)
     )
   )
 
@@ -429,6 +447,8 @@
                                  "\n"
                                  )
                   out)
+    (flush-output out)
+    (sleep SLEEP_SERIAL)
     )
   )
 
@@ -445,6 +465,8 @@
                                  (number->string colour) "}"
                                  "\n")
                   out)
+    (flush-output out)
+    (sleep SLEEP_SERIAL)
       )
     )
   )
@@ -456,6 +478,8 @@
                                  (number->string b)
                                  "\n")
                   out)
+    (flush-output out)
+    (sleep SLEEP_SERIAL)
     )
   )
 
@@ -880,9 +904,13 @@
   (sleep 5)
   (displayln "Clearing LCD and sending messages")
   (clearLCD)
+  (sleep 0.1)
   (setLCDMessage "0123456789ABCDEFGHILMNOPQRST" 1)
+  (sleep 0.1)
   (setLCDMessage "      Hello" 2)
+  (sleep 0.1)
   (setLCDMessage "      World" 3)
+  (sleep 0.1)
   (setLCDMessage "   **********" 4)
   (sleep 1)
   (displayln "Playing 3 notes")
@@ -892,6 +920,7 @@
   (displayln "Changing brightness")
   (setBrightness 150) 
   (displayln "Changing colour")
+  (sleep 0.1)
   (setPixelColour 255 0 0)
   (sleep 1)
   (setPixelColour 0 255 0)
@@ -900,3 +929,5 @@
   (displayln "Starting the loop")
   (testLoop)
   )
+
+(test)

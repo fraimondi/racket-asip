@@ -929,5 +929,3 @@
   (displayln "Starting the loop")
   (testLoop)
   )
-
-(test)

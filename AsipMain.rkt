@@ -64,6 +64,8 @@
          clearLCD
          setPixelColour
          setBrightness
+         enableDistance
+         getDistance
          )
 
 ; bit-operations
@@ -253,6 +255,11 @@
 (define SET_BRIGHTNESS              "B")
 (define GET_NUMBER_PIXELS           "I") ;; TODO: implement this
 
+;; *** DEFINITION OF ASIP CONSTANTS FOR DISTANCE SERVICE
+(define DISTANCE_SERVICE              "D")
+;; Remember: use ASIP_EVENT and AUTOEVENT_MESSAGE
+;; to read and configure this service
+
 ;; *** We store digital and analog pins in fixed-length array.
 ;; FIXME: this could be improved in the future, building the arrays after
 ;; querying the board capabilities.
@@ -274,6 +281,8 @@
 ;; To store the value of Bump sensors
 (define BUMP-VALUES (make-vector 2 #f))
 
+;; To store the value of distance sensors (we assume up to 16 sensors)
+(define DISTANCE-VALUES (make-vector 16 0))
 
 ;; *** DEFINTIONS TO WRITE MESSAGES **TO** ARDUINO ***
 
@@ -483,6 +492,17 @@
     )
   )
 
+(define enableDistance
+  (λ (interval)
+    (write-string (string-append DISTANCE_SERVICE "," 
+                                 AUTOEVENT_MESSAGE ","
+                                 (number->string interval) 
+                                 "\n")
+                  out)
+    (flush-output out)
+    (sleep SLEEP_SERIAL)
+    )
+  )
 
 ;; *** END OF FUNCTIONS TO WRITE TO ARDUINO ***
 
@@ -585,6 +605,9 @@
       
       [(equal? char BUMPER_SERVICE)
        (process-bump-service input)]
+      
+      [(equal? char DISTANCE_SERVICE)
+       (process-distance-service input)]
       
 ;;       (define MOTOR_SERVICE           "M")
 ;; (define SET_MOTOR_SPEED         "m")
@@ -819,6 +842,29 @@
       )
     )  
   ) ;; end of process-bump-service
+
+;; A bumper message is of the form @B,e,2,{0,1}
+(define process-distance-service
+  (λ (input) 
+  ;;(printf "DEBUG -> I have received: ~a \n" input)
+    (let ([service (substring input 3 4)])
+      (cond 
+        [(equal? service ASIP_EVENT)
+         (define distanceValues (string-split (substring input 
+                                                        (+ (str-index-of input "{") 1)
+         
+                                                        (str-index-of input "}") ) ",") )
+         (set! DISTANCE-VALUES (list->vector 
+                                (map (λ (x) (string->number x))
+                                 distanceValues )
+                          )
+               )
+         ]
+        [else (printf "DEBUG: unkown message for Distance service: ~a \n" input)]
+        )
+      )
+    )  
+  ) ;; end of process-bump-service
       
 ;;       (define MOTOR_SERVICE           "M")
 ;; (define SET_MOTOR_SPEED         "m")
@@ -871,6 +917,12 @@
     (λ () (vector-ref BUMP-VALUES 0))
   )
 
+;; Get the value of distance sensor pos.
+;; If no pos is provided, return the value in position 0
+(define getDistance (λ ([pos 0])
+  (vector-ref DISTANCE-VALUES pos)
+  )
+  )
 (define (testLoop)
   (setMotor 0 200)
   (sleep 1)

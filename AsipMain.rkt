@@ -8,13 +8,13 @@
 ;; For information regarding the ASIP protocol, please
 ;; see https://bitbucket.com/mdxmase/asip
 
-;; The basic idea is similar to racket-firmata: we set up input and output 
+;; The basic idea is similar to racket-firmata: we set up input and output
 ;; streams attached to a serial port. The main thread (this one) deals with
-;; writing, a separate thread handles the input. The input thread writes 
+;; writing, a separate thread handles the input. The input thread writes
 ;; values to arrays of bit values, see below.
 
 ;; How to use it: you can use any of the functions and constants exported
-;; below in the (provide... ) block. 
+;; below in the (provide... ) block.
 
 (provide open-asip
          close-asip
@@ -27,10 +27,10 @@
          set-arduino-pin! ;; shorthand for digital-write, for backward compatibility
          clear-arduino-pin! ;; shorthand for digital-write, for backward compatibility
          set-pin-mode! ;; synonym of set-pin-mode, for backward compatibility
-         
+
          setServo ;; a function to move a servo (TODO: check that the board supports servos!)
          playTone ;; a function to play a tone (TODO: check that the board supports tones!)
-         
+
          ;; pin modes
          UNKNOWN_MODE
          INPUT_MODE
@@ -40,11 +40,11 @@
          PWM_MODE
          RESERVED_MODE
          OTHER_SERVICE_MODE
-         
+
          ;; Arduino HIGH and LOW (1 and 0)
          HIGH
          LOW
-         
+
          ;; Myrtle-specific functions
          w1-stopMotor
          w2-stopMotor
@@ -73,10 +73,10 @@
 ; Needed for setting the terminal baudrate
 (require racket/system)
 ;; Needed to detect the port.
-(require "AsipUtilities.rkt") 
+(require "AsipUtilities.rkt")
 
 ;; These are the input and output ports and the thread handling input messages.
-(define in                null) 
+(define in                null)
 (define out               null)
 (define read-thread       null)
 
@@ -99,19 +99,19 @@
   (define call-string null)
   (define filename null)
   (define os (detect-os))
-  (cond 
-   ( (equal? os "linux") 
+  (cond
+   ( (equal? os "linux")
      (set! call-string (string-append  "stty -F " port-name " cs8 " BAUDRATE " ignbrk -brkint -icrnl -imaxbel -opost -onlcr -isig -icanon -iexten -echo -echoe -echok -echoctl -echoke noflsh -ixon -crtscts"))
-     (set! filename port-name))        
-   ( (equal? os "mac") 
+     (set! filename port-name))
+   ( (equal? os "mac")
      (set! call-string (string-append  "stty -f " port-name " " BAUDRATE " cs8 cread clocal"))
      (set! filename port-name))
-   ( (equal? os "win") 
+   ( (equal? os "win")
      (set! call-string (string-append  "mode " port-name ": baud=" BAUDRATE " parity=N data=8 stop=1 dtr=on"))
      (set! filename (string-append "\\\\?\\" port-name)))
    ) ;; end of cond to set stty or mode string and filename.
 
-  (cond ( (equal? os "win") 
+  (cond ( (equal? os "win")
 	  (if (system call-string) ;; here we set the port
 	      (begin
 	       (let-values ([(in-port out-port) (open-input-output-file filename #:mode 'binary #:exists 'append)])
@@ -128,21 +128,21 @@
                ;;;(sleep 0.1)
 	       (set! read-thread (thread (lambda ()  (read-hook)))) ;; we set the reading thread
 	       #t)
-	    (error "Failed to open the connection with " port-name " verify if your microcontroller is plugged in correctly"))            
+	    (error "Failed to open the connection with " port-name " verify if your microcontroller is plugged in correctly"))
 	  )
-        (else   
-         (set! out (open-output-file port-name #:mode 'binary #:exists 'append))
-         (set! in  (open-input-file  port-name #:mode 'binary))
-         (file-stream-buffer-mode out 'none)
+        (else
          (sleep 2)
          (if (system call-string) ;; here we set the port
              (begin
 	      (sleep 1)
+				(set! out (open-output-file port-name #:mode 'binary #:exists 'append))
+				(set! in  (open-input-file  port-name #:mode 'binary))
+				(file-stream-buffer-mode out 'none)
 	      (set! read-thread (thread (lambda ()  (read-hook)))) ;; we set the reading thread
 	      (printf "Success opening the serial port\n")
 	      #t)
-	   (error "Failed to open the connection with " port-name " verify if your microcontroller is plugged in correctly"))            
-	 )               
+	   (error "Failed to open the connection with " port-name " verify if your microcontroller is plugged in correctly"))
+	 )
 	)
   (sleep 0.2)
   ;; We request port mapping so that we know that we have it later on
@@ -155,7 +155,7 @@
   ) ;; end of open-asip
 
 (define (close-asip)
-  (when (not (null? read-thread)) 
+  (when (not (null? read-thread))
     (printf "Killing thread .... \n")
     (kill-thread read-thread)
     (set! read-thread null)
@@ -177,7 +177,7 @@
 (define ERROR_MESSAGE_HEADER     "~")
 (define DEBUG_MESSAGE_HEADER     "!")
 
-;; Usually followed by a time interval in milliseconds to set autoevent status 
+;; Usually followed by a time interval in milliseconds to set autoevent status
 ;; (time=0 means disable autoevents)
 (define AUTOEVENT_MESSAGE        "A")
 
@@ -263,8 +263,8 @@
 ;; *** We store digital and analog pins in fixed-length array.
 ;; FIXME: this could be improved in the future, building the arrays after
 ;; querying the board capabilities.
-(define MAX_NUM_DIGITAL_PINS  72) 
-(define MAX_NUM_ANALOG_PINS   16) 
+(define MAX_NUM_DIGITAL_PINS  72)
+(define MAX_NUM_ANALOG_PINS   16)
 
 (define ANALOG-IO-PINS (make-vector MAX_NUM_ANALOG_PINS))
 (define DIGITAL-IO-PINS (make-vector MAX_NUM_DIGITAL_PINS))
@@ -288,9 +288,9 @@
 
 ;; Setting a pin to a certain mode (INPUT, OUTPUT, PWM, etc.)
 (define (set-pin-mode pin mode)
-;;  (printf "DEBUG -> Sending: ~a \n" (string-append IO_SERVICE "," PIN_MODE "," (number->string pin) "," 
+;;  (printf "DEBUG -> Sending: ~a \n" (string-append IO_SERVICE "," PIN_MODE "," (number->string pin) ","
 ;;			(number->string mode) ))
-  (write-string (string-append IO_SERVICE "," PIN_MODE "," (number->string pin) "," 
+  (write-string (string-append IO_SERVICE "," PIN_MODE "," (number->string pin) ","
 			(number->string mode) "\n") out)
   (flush-output out)
   (sleep SLEEP_SERIAL)
@@ -299,14 +299,14 @@
 
 ;; Writing a value (high or low) to a digital pin
 (define (digital-write pin value)
-  (write-bytes (string->bytes/locale (string-append IO_SERVICE "," DIGITAL_WRITE "," (number->string pin) 
+  (write-bytes (string->bytes/locale (string-append IO_SERVICE "," DIGITAL_WRITE "," (number->string pin)
 			"," (number->string value) "\n")) out)
   (flush-output out)
   #t
 )
 
 (define (analog-write pin value)
-  (write-string (string-append IO_SERVICE "," ANALOG_WRITE "," (number->string pin) 
+  (write-string (string-append IO_SERVICE "," ANALOG_WRITE "," (number->string pin)
 			"," (number->string value) "\n") out)
   (flush-output out)
   (sleep SLEEP_SERIAL)
@@ -325,7 +325,7 @@
 (define set-pin-mode! set-pin-mode)
 
 ;; Just request the port mapping
-(define request-port-mapping (λ () 
+(define request-port-mapping (λ ()
                                (write-string (string-append IO_SERVICE "," PORT_MAPPING "\n") out)
                                (flush-output out)
   (sleep SLEEP_SERIAL)
@@ -334,14 +334,14 @@
 ;; Messages for Mirtle services
 
 ;; Stopping the motor with utility functions
-(define w1-stopMotor 
+(define w1-stopMotor
   (λ () (setMotor 0 0))
   )
 (define w2-stopMotor
   (λ () (setMotor 1 0))
   )
 (define stopMotors
-  (λ () 
+  (λ ()
     (setMotor 0 0)
     (setMotor 1 0)
     )
@@ -349,22 +349,22 @@
 
 ;; Setting both motors at the same time
 (define setMotors
-  (λ (s1 s2) 
+  (λ (s1 s2)
     (setMotor 0 s1)
     (sleep SLEEP_SERIAL)
     (setMotor 1 s2)
     )
   )
-   
+
 ;; The only useful one for motors is this one
 ;; that sends the message
 
 (define setMotor
   (λ (m s)
-    (write-string (string-append MOTOR_SERVICE "," 
+    (write-string (string-append MOTOR_SERVICE ","
                                  SET_MOTOR_SPEED ","
                                  (number->string m) ","
-                                 (number->string s) 
+                                 (number->string s)
                                  "\n")
                   out)
     (flush-output out)
@@ -374,9 +374,9 @@
 
 (define enableIR
   (λ (interval)
-    (write-string (string-append IR_SERVICE "," 
+    (write-string (string-append IR_SERVICE ","
                                  AUTOEVENT_MESSAGE ","
-                                 (number->string interval) 
+                                 (number->string interval)
                                  "\n")
                   out)
     (flush-output out)
@@ -386,9 +386,9 @@
 
 (define enableBumpers
   (λ (interval)
-    (write-string (string-append BUMPER_SERVICE "," 
+    (write-string (string-append BUMPER_SERVICE ","
                                  AUTOEVENT_MESSAGE ","
-                                 (number->string interval) 
+                                 (number->string interval)
                                  "\n")
                   out)
     (flush-output out)
@@ -398,9 +398,9 @@
 
 (define enableCounters
   (λ (interval)
-    (write-string (string-append ENCODER_SERVICE "," 
+    (write-string (string-append ENCODER_SERVICE ","
                                  AUTOEVENT_MESSAGE ","
-                                 (number->string interval) 
+                                 (number->string interval)
                                  "\n")
                   out)
     (flush-output out)
@@ -410,10 +410,10 @@
 
 (define setServo
   (λ (m s)
-    (write-string (string-append SERVO_SERVICE "," 
+    (write-string (string-append SERVO_SERVICE ","
                                  SET_SERVO_ANGLE ","
                                  (number->string m) ","
-                                 (number->string s) 
+                                 (number->string s)
                                  "\n")
                   out)
     (flush-output out)
@@ -452,7 +452,7 @@
 (define clearLCD
   (λ ()
     (write-string (string-append LCD_SERVICE ","
-                                 LCD_CLEAR 
+                                 LCD_CLEAR
                                  "\n"
                                  )
                   out)
@@ -494,9 +494,9 @@
 
 (define enableDistance
   (λ (interval)
-    (write-string (string-append DISTANCE_SERVICE "," 
+    (write-string (string-append DISTANCE_SERVICE ","
                                  AUTOEVENT_MESSAGE ","
-                                 (number->string interval) 
+                                 (number->string interval)
                                  "\n")
                   out)
     (flush-output out)
@@ -531,19 +531,19 @@
 
   ;; Franco: usual old problem on win machines?
   (define incomingData (read-line in))
-  (cond ( (not (eof-object? incomingData))          
-          (with-handlers ([(lambda (v) #t) (lambda (v) #t)]) 
+  (cond ( (not (eof-object? incomingData))
+          (with-handlers ([(lambda (v) #t) (lambda (v) #t)])
             (process-input incomingData)
             )
           )
         )
   (read-loop))
 
-(define our-read-line (λ (in) 
-                        (define gohere 
-                          (λ (curmsg) 
+(define our-read-line (λ (in)
+                        (define gohere
+                          (λ (curmsg)
                             (define curchar (read-byte in))
-                            (cond 
+                            (cond
                               ((or (eof-object? curchar) (equal? curchar 10)) (bytes->string/locale curmsg))
                               (else (gohere (bytes-append curmsg (bytes curchar))))
                               )
@@ -561,12 +561,12 @@
               [(equal? char EVENT_HANDLER)         (handle-input-event input)]
               [(equal? char ERROR_MESSAGE_HEADER)  (handle-error-event input)]
               [(equal? char DEBUG_MESSAGE_HEADER)  (handle-debug-event input)])
-            ;; FIXME: add error handling for unknown messages? 
+            ;; FIXME: add error handling for unknown messages?
             ;; FIXME: handle different messages in different ways
             )
           )
         )
-  
+
   )
 
 (define (handle-error-event input)
@@ -577,38 +577,38 @@
   (printf "DEBUG -> I have received the following debug message ~a \n" input)
   )
 
-  
+
 (define (handle-input-event input)
-  ;; We look at the first character and dispatch the 
+  ;; We look at the first character and dispatch the
   ;; input to the appropriate function
   (let ([char (substring input 1 2)])
-    (cond 
+    (cond
       [(equal? char IO_SERVICE)
        (let ([service (substring input 3 4)])
-         (cond 
+         (cond
            [(equal? service PORT_DATA)
             (process-port-data input)]
            [(equal? service PORT_MAPPING)
             (process-pin-data input)]
            [(equal? service ANALOG_VALUE)
             (process-analog-values input)]))]
-      
+
       [(equal? char MOTOR_SERVICE)
        (process-motor-service input)]
-      
+
       [(equal? char ENCODER_SERVICE)
        (process-encoder-service input)]
-      
+
       [(equal? char IR_SERVICE)
        (process-ir-service input)
        ]
-      
+
       [(equal? char BUMPER_SERVICE)
        (process-bump-service input)]
-      
+
       [(equal? char DISTANCE_SERVICE)
        (process-distance-service input)]
-      
+
 ;;       (define MOTOR_SERVICE           "M")
 ;; (define SET_MOTOR_SPEED         "m")
 
@@ -624,8 +624,8 @@
 
 ;; *** DEFINITION OF ASIP CONSTANTS FOR BUMPER SERVICE
 ;;(define BUMPER_SERVICE              "B")
-       
-      
+
+
       )))
 
 
@@ -637,7 +637,7 @@
 ;; 32. Take the conjunction of this with the port and you get the pin
 ;; value)
 ;; Here we set up this initial mapping. We use the hash map PORT-MAPPING-TABLE. This table
-;; maps a port number to another hash map. In this second hash map we map positions in the port 
+;; maps a port number to another hash map. In this second hash map we map positions in the port
 ;; (expressed as powers of 2, so 1 means position 0, 16 means position 5, etc.)
 ;; Overall, this looks something like (see message above)
 ;; PORT=4 ---> (POSITION=1 ---> PIN=0)
@@ -647,22 +647,22 @@
 ;;             ...
 ;;             (POSITION=16 ---> PIN=12)
 ;;             ...
-;; and so on.               
+;; and so on.
 (define (process-pin-data input)
-  
+
   ;; First we take the string between brackets (str-index-of is defined below)
-  (define ports (string-split (substring input 
+  (define ports (string-split (substring input
                            (+ (str-index-of input "{") 1)
                            (str-index-of input "}") ) ",") )
-    
+
   ;; We iterate over the list
   (for ([i (length ports)])
     ;; the pin is i; the port is the first element of the pair; the bit is the second element.
     ;; we attach #x in front to denote that it's a hex number
     (define port (string->number (first (string-split (list-ref ports i) ":"))))
-    (define position (string->number (string-append "#x" 
+    (define position (string->number (string-append "#x"
                                                     (second (string-split (list-ref ports i) ":")))))
-  
+
     (cond ( (hash-has-key? PORT-MAPPING-TABLE port)
             ;; there is already a key for this port. Let's get it and
             ;; add the new entry position -> pin
@@ -679,31 +679,31 @@
 ) ;; End of process-pin-data
 
 
-;; If a digital pin set to input mode changes, the board notifies 
+;; If a digital pin set to input mode changes, the board notifies
 ;; us with a message on the input stream. The message has the form:
 ;; @I,d,4,AB
 ;; where 4 is the port number and AB is a hex number with the value
 ;; of the pins in that port. For instance, AB in binary is  10101011
 ;; meaning that the pin corresponding to position 1 in port 4 has value 1,
 ;; pin corresponding to position 2 in port 4 has value 0, etc..
-(define (process-port-data input) 
+(define (process-port-data input)
   ;; FIXME: we should really check that PORT-MAPPING-TABLE exists before doing
   ;; anything here...
   (define port (string->number (string-append "#x" (substring input 5 6))))
   (define bitmask (string->number (string-append "#x" (substring input 7))))
   ;;(printf "DEBUG -> The values for port ~a are ~a \n" port bitmask)
-  
+
   ;; Now we need to convert the value of a port back to pin values.
   ;; Let's retrieve the mapping for this port, making sure we have this port:
-  (cond ( (hash-has-key? PORT-MAPPING-TABLE port) 
+  (cond ( (hash-has-key? PORT-MAPPING-TABLE port)
           (define singlePortMap (hash-ref PORT-MAPPING-TABLE port))
 
           ;; Easy: we take the bitwise-and of the port with the position;
           ;; if it is not zero we set pin to HIGH, and to LOW otherwise
-          (hash-for-each singlePortMap 
-                         (lambda (x y) 
-                           (vector-set! DIGITAL-IO-PINS y 
-                                        (cond 
+          (hash-for-each singlePortMap
+                         (lambda (x y)
+                           (vector-set! DIGITAL-IO-PINS y
+                                        (cond
                                           ( (equal? (bitwise-and bitmask x) 0) LOW)
                                           (else HIGH)
                                           )
@@ -720,23 +720,23 @@
 ;; (this are analog pins: 3 of them are set, analog pins 0, 1 and 2 in
 ;; this case, and their values are in brackets).
 ;; REMEMBER to set auto-reporting with set-autoreport, or it won't work :-)
-(define (process-analog-values input) 
+(define (process-analog-values input)
   ;; First we take the string between brackets (str-index-of is defined below)
   ;; and split to obtain a list of the form "0:320" "1:340" etc.
-  
-  (define analogValues (string-split (substring input 
+
+  (define analogValues (string-split (substring input
                                                 (+ (str-index-of input "{") 1)
                                                 (str-index-of input "}") ) ",") )
-  
+
   ;; we then map a function to set the analog pins.
   (map (λ (x) (vector-set! ANALOG-IO-PINS
                            (string->number (first (string-split x ":")))  ;; the pin
                            (string->number (second (string-split x ":"))) ;; the value
                            ) ) analogValues ;; end of lambda
                                ) ;; end of map
-  
+
   ;;(printf "The current value of analog pins is: ~a \n" ANALOG-IO-PINS)
-  
+
   ) ;; end process-analog-values
 
 
@@ -760,55 +760,55 @@
 ;; A message is something like "“@E,e,2,{3000:110,3100:120}"
 ;; where 3000 is the pulse and 110 is the counter (since last
 ;; message). Here I only store the counter.
-(define process-encoder-service 
-  (λ (input) 
+(define process-encoder-service
+  (λ (input)
   ;;(printf "DEBUG -> I have received: ~a \n" input)
     (let ([service (substring input 3 4)])
-      (cond 
+      (cond
         [(equal? service ASIP_EVENT)
-         (define encoderValues (string-split (substring input 
+         (define encoderValues (string-split (substring input
                                                         (+ (str-index-of input "{") 1)
-         
+
                                                         (str-index-of input "}") ) ",") )
          ;; The increment of the first counter
-         (define delta0 
+         (define delta0
            (string->number (list-ref (string-split (list-ref encoderValues 0) ":") 1))
            )
 
          ;; The increment of the second counter
-         (define delta1 
+         (define delta1
            (string->number (list-ref (string-split (list-ref encoderValues 1) ":") 1))
            )
-         
-         (vector-set! MOTOR-COUNT 0 
+
+         (vector-set! MOTOR-COUNT 0
                       (+ (vector-ref MOTOR-COUNT 0)
                          delta0 )
                       )
-         
-         (vector-set! MOTOR-COUNT 1 
+
+         (vector-set! MOTOR-COUNT 1
                       (+ (vector-ref MOTOR-COUNT 1)
                          delta1 )
-                      )        
+                      )
          ]
         [else (printf "DEBUG: unkown message for encoder service: ~a \n" input)]
         )
       )
     )
-) ;; end process-encode-service     
+) ;; end process-encode-service
 
 ;; An IR message is of the form @R,e,3,{100,200,300}
-(define process-ir-service 
-  (λ (input) 
+(define process-ir-service
+  (λ (input)
   ;;(printf "DEBUG -> I have received: ~a \n" input)
     (let ([service (substring input 3 4)])
-      (cond 
+      (cond
         [(equal? service ASIP_EVENT)
-         (define irValues (string-split (substring input 
+         (define irValues (string-split (substring input
                                                         (+ (str-index-of input "{") 1)
-         
+
                                                         (str-index-of input "}") ) ",") )
-         (set! IR-VALUES (list->vector 
-                          (map (λ (x) (string->number x)) irValues) 
+         (set! IR-VALUES (list->vector
+                          (map (λ (x) (string->number x)) irValues)
                           )
                )
          ]
@@ -816,45 +816,45 @@
         )
       )
     )
-) ;; end process-ir-service  
+) ;; end process-ir-service
 
 ;; A bumper message is of the form @B,e,2,{0,1}
 (define process-bump-service
-  (λ (input) 
+  (λ (input)
   ;;(printf "DEBUG -> I have received: ~a \n" input)
     (let ([service (substring input 3 4)])
-      (cond 
+      (cond
         [(equal? service ASIP_EVENT)
-         (define bumperValues (string-split (substring input 
+         (define bumperValues (string-split (substring input
                                                         (+ (str-index-of input "{") 1)
-         
+
                                                         (str-index-of input "}") ) ",") )
-         (set! BUMP-VALUES (list->vector 
-                          (map (λ (x) 
+         (set! BUMP-VALUES (list->vector
+                          (map (λ (x)
                                  (cond [(equal? x "1") #f]
                                        [else #t]))
-                                 bumperValues) 
+                                 bumperValues)
                           )
                )
          ]
         [else (printf "DEBUG: unkown message for Bumper service: ~a \n" input)]
         )
       )
-    )  
+    )
   ) ;; end of process-bump-service
 
 ;; A bumper message is of the form @B,e,2,{0,1}
 (define process-distance-service
-  (λ (input) 
+  (λ (input)
   ;;(printf "DEBUG -> I have received: ~a \n" input)
     (let ([service (substring input 3 4)])
-      (cond 
+      (cond
         [(equal? service ASIP_EVENT)
-         (define distanceValues (string-split (substring input 
+         (define distanceValues (string-split (substring input
                                                         (+ (str-index-of input "{") 1)
-         
+
                                                         (str-index-of input "}") ) ",") )
-         (set! DISTANCE-VALUES (list->vector 
+         (set! DISTANCE-VALUES (list->vector
                                 (map (λ (x) (string->number x))
                                  distanceValues )
                           )
@@ -863,9 +863,9 @@
         [else (printf "DEBUG: unkown message for Distance service: ~a \n" input)]
         )
       )
-    )  
+    )
   ) ;; end of process-bump-service
-      
+
 ;;       (define MOTOR_SERVICE           "M")
 ;; (define SET_MOTOR_SPEED         "m")
 
@@ -884,17 +884,17 @@
 
 
 ;; Other utility functions for Myrtle
-;; TODO: Add error checking, esp. for out 
+;; TODO: Add error checking, esp. for out
 ;; of bounds requests!
 
 ;; reset and read encoders
-(define resetCount 
-  (λ (num) 
+(define resetCount
+  (λ (num)
     (vector-set! MOTOR-COUNT num 0)
     )
   )
 
-(define readCount 
+(define readCount
   (λ (num)
     (vector-ref MOTOR-COUNT num)
     )
@@ -910,7 +910,7 @@
   )
 
 ;; Boolean functions for bump sensors
-(define rightBump? 
+(define rightBump?
   (λ () (vector-ref BUMP-VALUES 1))
   )
 (define leftBump?
@@ -970,7 +970,7 @@
   (playTone 294 500)
   (playTone 262 500)
   (displayln "Changing brightness")
-  (setBrightness 150) 
+  (setBrightness 150)
   (displayln "Changing colour")
   (sleep 0.1)
   (setPixelColour 255 0 0)

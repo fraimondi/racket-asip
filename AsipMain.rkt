@@ -143,11 +143,9 @@
 	 )
 	)
   (sleep 1)
-  (displayln "Requesting port mapping...")
   ;; We request port mapping so that we know that we have it later on
   (request-port-mapping)
   (sleep 0.2)
-  (displayln "Requesting port mapping...")
   (request-port-mapping)
   (sleep 0.2)
   ;(define orig-exception (uncaught-exception-handler))

@@ -62,8 +62,6 @@
          enableCounters
          setLCDMessage
          clearLCD
-         setPixelColour
-         setBrightness
          enableDistance
          getDistance
          )
@@ -144,10 +142,12 @@
 	   (error "Failed to open the connection with " port-name " verify if your microcontroller is plugged in correctly"))
 	 )
 	)
-  (sleep 0.2)
+  (sleep 1)
+  (displayln "Requesting port mapping...")
   ;; We request port mapping so that we know that we have it later on
   (request-port-mapping)
   (sleep 0.2)
+  (displayln "Requesting port mapping...")
   (request-port-mapping)
   (sleep 0.2)
   ;(define orig-exception (uncaught-exception-handler))
@@ -222,13 +222,18 @@
 (define PLAY_TONE                  "P")
 
 
+;; *** DEFINITION OF ASIP CONSTANTS FOR PIXEL SERVICE ***
+(define PIXEL_SERVICE               "P")
+(define SET_PIXELS                  "P")
+;; FIXME: Implement these!
+
 ;; OTHER SERVICES FOR THE MIRTO ROBOT, see https://bitbucket.org/mdxmase/asip-mirtle2015
 ;; *** DEFINITION OF ASIP CONSTANTS FOR MOTOR (HUB-EE WHEELS) SERVICE ***
 (define MOTOR_SERVICE           "M")
 (define SET_MOTOR_SPEED         "m")
 
 ;; *** DEFINITION OF ASIP CONSTANTS FOR ENCODERS (HUB-EE WHEELS) SERVICE ***
-(define ENCODER_SERVICE         "E")
+(define ENCODER_SERVICE         "M")
 ;; Remember: use ASIP_EVENT and AUTOEVENT_MESSAGE
 ;; to read and configure this service
 
@@ -247,13 +252,6 @@
 (define LCD_WRITE                   "W")
 (define LCD_CLEAR                   "C")
 
-
-;; *** DEFINITION OF ASIP CONSTANTS FOR NEOPIXELS ***
-(define PIXEL_SERVICE               "P")
-(define SET_PIXELS                  "P") ;; TODO: implement this for a strip
-(define SET_PIXEL_SEQUENCE          "S") ;; TODO: implement this
-(define SET_BRIGHTNESS              "B")
-(define GET_NUMBER_PIXELS           "I") ;; TODO: implement this
 
 ;; *** DEFINITION OF ASIP CONSTANTS FOR DISTANCE SERVICE
 (define DISTANCE_SERVICE              "D")
@@ -400,7 +398,7 @@
   (λ (interval)
     (write-string (string-append ENCODER_SERVICE ","
                                  AUTOEVENT_MESSAGE ","
-                                 (number->string interval)
+                                 1 ;; notice: frequency cannot be modified in 2018 version
                                  "\n")
                   out)
     (flush-output out)
@@ -461,36 +459,6 @@
     )
   )
 
-;; The robot has just one LED. The generic request would be:
-;;  "P,P,count,{pixel:color,...}\n", where first pixel is 0
-;; and colour is obtained form an RGB triple (r,g,b) with:
-;; (255^2 * r) + 256*g + b;
-(define setPixelColour
-;; the function takes a triple of colours
-  (λ (r g b)
-    (let ( [colour (+ (* 256 256 r) (* 256 g) b)])
-      (write-string (string-append PIXEL_SERVICE ","
-                                 SET_PIXELS ",1,{0:"
-                                 (number->string colour) "}"
-                                 "\n")
-                  out)
-    (flush-output out)
-    (sleep SLEEP_SERIAL)
-      )
-    )
-  )
-
-(define setBrightness
-  (λ (b)
-    (write-string (string-append PIXEL_SERVICE ","
-                                 SET_BRIGHTNESS ","
-                                 (number->string b)
-                                 "\n")
-                  out)
-    (flush-output out)
-    (sleep SLEEP_SERIAL)
-    )
-  )
 
 (define enableDistance
   (λ (interval)
@@ -772,12 +740,12 @@
                                                         (str-index-of input "}") ) ",") )
          ;; The increment of the first counter
          (define delta0
-           (string->number (list-ref (string-split (list-ref encoderValues 0) ":") 1))
+           (string->number (list-ref (string-split (list-ref encoderValues 0) ":") 0))
            )
 
          ;; The increment of the second counter
          (define delta1
-           (string->number (list-ref (string-split (list-ref encoderValues 1) ":") 1))
+           (string->number (list-ref (string-split (list-ref encoderValues 1) ":") 0))
            )
 
          (vector-set! MOTOR-COUNT 0
@@ -969,15 +937,5 @@
   (playTone 330 500)
   (playTone 294 500)
   (playTone 262 500)
-  (displayln "Changing brightness")
-  (setBrightness 150)
-  (displayln "Changing colour")
-  (sleep 0.1)
-  (setPixelColour 255 0 0)
-  (sleep 1)
-  (setPixelColour 0 255 0)
-  (sleep 1)
-  (setPixelColour 0 0 255)
-  (displayln "Starting the loop")
   (testLoop)
   )

@@ -372,7 +372,7 @@
   (λ (interval)
     (write-string (string-append IR_SERVICE ","
                                  AUTOEVENT_MESSAGE ","
-                                 (number->string interval)
+                                 "1" ;;(number->string interval) ;; this is for 2018 asip
                                  "\n")
                   out)
     (flush-output out)
@@ -384,7 +384,7 @@
   (λ (interval)
     (write-string (string-append BUMPER_SERVICE ","
                                  AUTOEVENT_MESSAGE ","
-                                 (number->string interval)
+                                 "1" ;;(number->string interval) ;; this is for 2018 asip
                                  "\n")
                   out)
     (flush-output out)
@@ -396,7 +396,7 @@
   (λ (interval)
     (write-string (string-append ENCODER_SERVICE ","
                                  AUTOEVENT_MESSAGE ","
-                                 1 ;; notice: frequency cannot be modified in 2018 version
+                                 "1";; notice: frequency cannot be modified in 2018 version
                                  "\n")
                   out)
     (flush-output out)
@@ -719,7 +719,7 @@
 
 (define process-motor-service
   (λ (input)
-    (printf "DEBUG: I received an unexpected message for the motor service: ~a \n" input)
+    (process-encoder-service input)
     )
   )
 
@@ -909,11 +909,11 @@
 
 (define (test)
   (open-asip)
-  (enableIR 100)
+  (enableIR 1)
   (sleep 0.1)
-  (enableCounters 100)
+  (enableCounters 1)
   (sleep 0.1)
-  (enableBumpers 100)
+  (enableBumpers 1)
   (sleep 0.1)
   (displayln "Playing 3 notes")
   (playTone 262 500)

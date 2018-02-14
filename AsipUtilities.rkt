@@ -48,7 +48,7 @@
 (define (get-port)
   (define os (detect-os))
   (match os
-    ("linux" (or (find-port file-exists? "/dev/ttyACM" 0)  (find-port file-exists? "/dev/ttyAMA" 0) (find-port file-exists? "/dev/ttyUSB" 0) ))
+    ("linux" (or (find-port file-exists? "/dev/ttyS" 0) (find-port file-exists? "/dev/ttyACM" 0)  (find-port file-exists? "/dev/ttyAMA" 0) (find-port file-exists? "/dev/ttyUSB" 0) ))
     ;; hopefully there is nothing attached above port 3... You may need to change this.
     ("win" (find-port valid-com-port "COM" 3))
     ("mac" (find-mac-port))

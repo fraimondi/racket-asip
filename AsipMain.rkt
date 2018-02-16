@@ -359,8 +359,8 @@
   (λ (m s)
     (write-string (string-append MOTOR_SERVICE ","
                                  SET_MOTOR_SPEED ","
-                                 (number->string m) ","
-                                 (number->string s)
+                                 (number->string m ) ","
+                                 (number->string (round (* (/ s 255) 100)) )
                                  "\n")
                   out)
     (flush-output out)
@@ -372,7 +372,7 @@
   (λ (interval)
     (write-string (string-append IR_SERVICE ","
                                  AUTOEVENT_MESSAGE ","
-                                 "1" ;;(number->string interval) ;; this is for 2018 asip
+                                 (number->string interval) 
                                  "\n")
                   out)
     (flush-output out)
@@ -384,7 +384,7 @@
   (λ (interval)
     (write-string (string-append BUMPER_SERVICE ","
                                  AUTOEVENT_MESSAGE ","
-                                 "1" ;;(number->string interval) ;; this is for 2018 asip
+                                 (number->string interval)
                                  "\n")
                   out)
     (flush-output out)
@@ -890,10 +890,10 @@
   )
   )
 (define (testLoop)
-  (setMotor 0 200)
+  (setMotor 0 50)
   (sleep 1)
   (stopMotors)
-  (setMotor 1 200)
+  (setMotor 1 50)
   (sleep 1)
   (stopMotors)
   (setMotors -100 100)
@@ -909,9 +909,9 @@
 
 (define (test)
   (open-asip)
-  (enableIR 1)
+  (enableIR 100)
   (sleep 0.1)
-  (enableCounters 1)
+  (enableCounters 100)
   (sleep 0.1)
   (enableBumpers 1)
   (sleep 0.1)
